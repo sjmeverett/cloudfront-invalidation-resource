@@ -1,83 +1,48 @@
-import { CloudFront } from 'aws-sdk';
-import fetch from 'node-fetch';
 import { CloudFrontInvalidationOptions } from './CloudFrontInvalidationOptions';
+import {
+  createCloudFormationCustomResource,
+  CloudFormationCustomResourceProperties,
+} from '@sjmeverett/cloudformation-types';
+import { createLambdaFnWithRole } from '@sjmeverett/cloudformation-lambda';
 
-export const handler = async (event: any, context: any) => {
-  const options: CloudFrontInvalidationOptions = event.ResourceProperties as any;
-  const resourceId = `Invalidation-${options.DistributionId}`;
+export interface CreateCloudFormationCustomResourceOptions
+  extends CloudFrontInvalidationOptions,
+    CloudFormationCustomResourceProperties {}
 
-  try {
-    console.log(event);
-
-    if (event.RequestType === 'Create' || event.RequestType === 'Update') {
-      const cloudfront = new CloudFront();
-
-      await cloudfront
-        .createInvalidation({
-          DistributionId: options.DistributionId,
-          InvalidationBatch: {
-            CallerReference: Date.now().toString(),
-            Paths: {
-              Quantity: options.Paths.length,
-              Items: options.Paths,
-            },
-          },
-        })
-        .promise();
-
-      await putResponse(
-        'SUCCESS',
-        'Invalidation successfully created',
-        resourceId,
-        event,
-      );
-    } else if (event.RequestType === 'Delete') {
-      await putResponse(
-        'SUCCESS',
-        'Successfully deleted (NOP)',
-        event.PhysicalResourceId,
-        event,
-      );
-    } else {
-      await putResponse(
-        'FAILED',
-        `Unknown request type ${event.RequestType}`,
-        resourceId,
-        event,
-      );
-    }
-  } catch (err) {
-    console.log(err.stack);
-    await putResponse('FAILED', `Error: ${err.message}`, resourceId, event);
-  }
-};
-
-async function putResponse(
-  status: 'SUCCESS' | 'FAILED',
-  reason: string,
-  resourceId: string,
-  event: any,
-  data: any = {},
+export function createCloudFrontInvalidation(
+  name: string,
+  options: CreateCloudFormationCustomResourceOptions,
 ) {
-  const responseBody = {
-    Status: status,
-    Reason: reason,
-    PhysicalResourceId: resourceId,
-    StackId: event.StackId,
-    RequestId: event.RequestId,
-    LogicalResourceId: event.LogicalResourceId,
-    Data: data,
-  };
+  return createCloudFormationCustomResource(name, options);
+}
 
-  console.log('Response ', responseBody);
-
-  const response = await fetch(event.ResponseURL, {
-    method: 'PUT',
-    headers: {
-      'content-type': '',
+export function createCloudFrontInvalidationResources(
+  bucket: string,
+  key: string,
+) {
+  return createLambdaFnWithRole('CloudFrontInvalidationResource', {
+    Code: {
+      S3Bucket: bucket,
+      S3Key: key,
     },
-    body: JSON.stringify(responseBody),
+    Handler: 'index.handler',
+    Runtime: 'nodejs12.x',
+    Timeout: 120,
+    AllowLogging: true,
+    Policies: [
+      {
+        PolicyName: 'CloudFrontInvalidationResourcePolicy',
+        PolicyDocument: {
+          Statement: [
+            {
+              Action: ['cloudfront:CreateInvalidation'],
+              Effect: 'Allow',
+              Sid: 'AddPerm',
+              Resource: '*',
+            },
+          ],
+        },
+      },
+    ],
   });
-
-  console.log(`Reply: ${response.status} ${response.statusText}`);
 }
