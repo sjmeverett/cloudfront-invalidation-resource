@@ -5,13 +5,13 @@ import {
 } from '@sjmeverett/cloudformation-types';
 import { createLambdaFnWithRole } from '@sjmeverett/cloudformation-lambda';
 
-export interface CreateCloudFormationCustomResourceOptions
+export interface CreateCloudFrontInvalidationOptions
   extends CloudFrontInvalidationOptions,
     CloudFormationCustomResourceProperties {}
 
 export function createCloudFrontInvalidation(
   name: string,
-  options: CreateCloudFormationCustomResourceOptions,
+  options: CreateCloudFrontInvalidationOptions,
 ) {
   return createCloudFormationCustomResource(name, options);
 }
