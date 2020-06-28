@@ -2,6 +2,7 @@ import { CloudFrontInvalidationOptions } from './CloudFrontInvalidationOptions';
 import {
   createCloudFormationCustomResource,
   CloudFormationCustomResourceProperties,
+  ResourceDescription,
 } from '@sjmeverett/cloudformation-types';
 import { createLambdaFnWithRole } from '@sjmeverett/cloudformation-lambda';
 
@@ -9,11 +10,17 @@ export interface CreateCloudFrontInvalidationOptions
   extends CloudFrontInvalidationOptions,
     CloudFormationCustomResourceProperties {}
 
+export type CloudFrontInvalidationDescription = ResourceDescription<
+  'AWS::CloudFormation::CustomResource',
+  CreateCloudFrontInvalidationOptions,
+  {}
+>;
+
 export function createCloudFrontInvalidation(
   name: string,
   options: CreateCloudFrontInvalidationOptions,
-) {
-  return createCloudFormationCustomResource(name, options);
+): CloudFrontInvalidationDescription {
+  return createCloudFormationCustomResource(name, options) as any;
 }
 
 export function createCloudFrontInvalidationResources(
